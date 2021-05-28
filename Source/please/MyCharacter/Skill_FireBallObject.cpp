@@ -2,7 +2,7 @@
 
 
 #include "Skill_FireBallObject.h"
-#include "../Enemy.h"
+#include "../Enemy/Enemy.h"
 #include "Main.h"
 #include "Components/SphereComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -59,6 +59,10 @@ void ASkill_FireBallObject::Tick(float DeltaTime)
 	SetActorRelativeLocation(nextLocation, true);
 }
 
+void ASkill_FireBallObject::SetOwnerCharacter(AMain* _Main)
+{
+	OwnerCharacter = _Main;
+}
 void ASkill_FireBallObject::CollisionSphereOnOverlapBegin(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 {
 	if (OtherActor)
@@ -71,14 +75,17 @@ void ASkill_FireBallObject::CollisionSphereOnOverlapBegin(UPrimitiveComponent * 
 			// 적과 충돌했다면
 			if (enemy)
 			{
-	
+				if (OwnerCharacter)
+				{
+					OwnerCharacter->ApplyMagicDamage(enemy, DamageTypeClass,Damage);
+				}
 			}
 			if (HitParticles)
 			{
 				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitParticles, GetActorLocation(), FRotator(0.f), false);
 			}
 			Destroy(this);
-			UE_LOG(LogTemp, Warning, TEXT("fireball overlappppppppp!!34"));
+		
 		}
 	}
 

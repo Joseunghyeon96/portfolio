@@ -3,7 +3,7 @@
 
 #include "Explosive.h"
 #include "MyCharacter/Main.h"
-#include "Enemy.h"
+#include "Enemy/Enemy.h"
 #include "Kismet/GameplayStatics.h"
 
 AExplosive::AExplosive()

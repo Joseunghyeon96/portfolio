@@ -6,7 +6,6 @@
 #include "Blueprint/DragDropOperation.h"
 #include "ItemDragDrop.generated.h"
 
-enum EItemType;
 /**
  * 
  */
@@ -23,6 +22,4 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ExposeOnSpawn = true))
 		bool DragInventory;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
-		TEnumAsByte<EItemType> Type;
 };

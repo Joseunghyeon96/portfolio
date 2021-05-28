@@ -26,6 +26,9 @@ public:
 	// Sets default values for this actor's properties
 	AItem();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = GameMode)
+		class ApleaseGameModeBase* GM;
+
 	// Base shape collision
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Item | Collision")
 	class USphereComponent* CollisionVolume;
@@ -39,8 +42,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item | Particles")
 	class UParticleSystem* OverlapParticles;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item | Sounds")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sounds")
 	class USoundCue* OverlapSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sounds")
+		class USoundCue* UseSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item | ItemProperties")
 	bool bRotate;
@@ -48,8 +54,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item | ItemProperties")
 	float RotationRate;
 
+
 	//아이템 이름
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item | Tooltip")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item | Tooltip")
 	FString Name;
 
 	//아이템 이미지

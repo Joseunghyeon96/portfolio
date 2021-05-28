@@ -58,6 +58,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widgets")
 		UUserWidget* HelpMessage;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widgets")
+		TSubclassOf<class UUserWidget> WDeadUI;
+
+	// Variable to hold the widget after creating it
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widgets")
+		UUserWidget* DeadUI;
+
 	bool bPauseMenuVisible;
 	bool bOpenItemBox;
 	bool bInvetoryVisible;
@@ -86,6 +93,11 @@ public:
 
 	void DisplayHelpMessage();
 	void RemoveHelpMessage();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "HUD")
+	void DisplayDeadUI();
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "HUD")
+	void RemoveDeadUI();
 
 	UPROPERTY(BlueprintAssignable, Category = "Inventory")
 		FVisibleInventory DelOpenInventory;

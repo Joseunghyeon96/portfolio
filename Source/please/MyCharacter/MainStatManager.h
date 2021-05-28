@@ -6,6 +6,8 @@
 #include "Components/ActorComponent.h"
 #include "MainStatManager.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FStatusUpdate, UMainStatManager*, StatManager);
+
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PLEASE_API UMainStatManager : public UActorComponent
@@ -36,13 +38,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player Stats")
 		float CurrentStamina;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player Stats")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
 		float Damage;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player Stats")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
+		float DEF;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
 		int32 Exp;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player Stats")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
+		float STR;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
+		float WeaponDamage;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
 		int32 Level;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player Stats")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
 		int32 LevelUpExp;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player Stats")
 		int32 MaxLevel;
@@ -54,6 +63,16 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	void ApplyExp(int32 _Exp);
+	void AddWeaponDamage(float _InputDamage);
+	void AddDEF(float _InputDEF);
+	void AddSTR(float _InputSTR);
+	void SetDamage();
+	void LevelUp();
+	FORCEINLINE float GetDamage() const { return Damage; }
+
+
+	UPROPERTY(BlueprintAssignable, Category = "Update")
+	FStatusUpdate DelStatUpdate;
 
 
 		

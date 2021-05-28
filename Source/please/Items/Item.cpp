@@ -6,7 +6,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
-#include "MyCharacter/Main.h"
+#include "../MyCharacter/Main.h"
+#include "../pleaseGameModeBase.h"
 
 // Sets default values
 AItem::AItem()
@@ -36,6 +37,8 @@ void AItem::BeginPlay()
 
 	CollisionVolume->OnComponentBeginOverlap.AddDynamic(this, &AItem::OnOverlapBegin);
 	CollisionVolume->OnComponentEndOverlap.AddDynamic(this, &AItem::OnOverlapEnd);
+
+	GM = Cast<ApleaseGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()));
 }
 
 // Called every frame
@@ -79,6 +82,8 @@ void AItem::OnOverlapEnd(UPrimitiveComponent * OverlappedComponent, AActor * Oth
 void AItem::UseItem(AMain * _Main)
 {
 	UE_LOG(LogTemp, Warning, TEXT("item virtual useitem func"));
+	if(UseSound)
+		UGameplayStatics::PlaySound2D(this, UseSound, GM->EffectVolume);
 }
 
 FString AItem::ConvertHexToFString(FString & _InputStr)

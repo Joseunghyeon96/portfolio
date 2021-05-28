@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Armor.h"
 #include "Main.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FUpdateItemBoxDelegate, const TArray<AItem*>&, Items);
@@ -29,6 +30,15 @@ enum class EStaminaStatus : uint8
 	ESS_MAX UMETA(DisplayName = "DefaultMax")
 };
 
+UENUM(BlueprintType)
+enum class ESkillDamage : uint8
+{
+	ESD_Normal UMETA(DisplayName = "Normal"),
+	ESD_Slash UMETA(DisplayName = "Slash"),
+
+	ESD_MAX UMETA(DisplayName = "Normal"),
+};
+
 UCLASS()
 class PLEASE_API AMain : public ACharacter
 {
@@ -37,6 +47,9 @@ class PLEASE_API AMain : public ACharacter
 public:
 	// Sets default values for this character's properties
 	AMain();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = GameMode)
+		class ApleaseGameModeBase* GM;
 
 	UPROPERTY(EditDefaultsOnly, Category = "SavedData")
 		TSubclassOf<class AItemStorage> WeaponStorage;
@@ -61,10 +74,19 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Items)
 	class AWeapon* EquippedWeapon;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items | Armor")
+		class AArmor* ArmorHead;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items | Armor")
+		class AArmor* ArmorShoes;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items | Armor")
+		class AArmor* ArmorChest;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items | Armor")
+		class AArmor* ArmorPant;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items | Armor")
+		class AArmor* ArmorShield;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Items)
 	class AItem* ActiveOverlappingItem;
-
-	
 
 	// Movement Status
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite , Category = "Enums")
@@ -73,6 +95,9 @@ public:
 	// Stamina Status
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Enums")
 	EStaminaStatus ESS;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Enums")
+	ESkillDamage ESD;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement")
 	float StaminaDrainRate;
@@ -178,9 +203,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat")
 	bool bIsRMoved;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Save)
-	bool bCanLoad;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Item")
 	class AItemBox* ItemBox;
 
@@ -237,6 +259,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void PressKeyF();
 	void PressKeyG();
+	void PressKeyH();
 	FRotator GetLookAtRotationYaw(FVector TargetLocation);
 	void Attack();
 	void ComboAttack();
@@ -280,14 +303,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void LoadGame(bool SetPosition);
 
-	UFUNCTION(BlueprintCallable)
-	void SetCanLoadGame(bool Input);
-
-	void SwitchSave();
-
-	void SwitchLoad();
-
 	void MainApplyDamage(class AEnemy* _Enemy, TSubclassOf<UDamageType> _DamageTypeClass );
+	void ApplyMagicDamage(class AEnemy* _Enemy, TSubclassOf<UDamageType> _DamageTypeClass,float Damage);
 	
 	UFUNCTION(BlueprintCallable)
 	void ESCDown();
@@ -310,10 +327,20 @@ public:
 	void UnEquipWeapon(AItem* _Item);
 
 	UFUNCTION(BlueprintCallable)
+	void EquipArmor(class AItem* Item);
+	UFUNCTION(BlueprintCallable)
+	void UnEquipArmor(AItem* _Item);
+
+	UFUNCTION(BlueprintCallable)
+	void RestartLevel();
+
+	UFUNCTION(BlueprintCallable)
 	void OpenInventory();
 
 	UFUNCTION(BlueprintCallable)
 	void ShowHelpString(FString Text);
+
+	AArmor* GetArmor(enum class EArmorType ArmorType);
 
 	void SetItemBox(AItemBox* Target);
 	FORCEINLINE void SetStaminaStatus(EStaminaStatus Input) { ESS = Input; }

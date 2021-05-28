@@ -4,9 +4,9 @@
 #include "ItemBox.h"
 #include "Components/BoxComponent.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "MyCharacter/Main.h"
+#include "../MyCharacter/Main.h"
 #include "Item.h"
-#include "MyCharacter/Weapon.h"
+#include "../MyCharacter/Weapon.h"
 
 //
 //#include "Kismet/GameplayStatics.h"

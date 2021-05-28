@@ -9,5 +9,4 @@ UMySaveGame::UMySaveGame()
 	UserIdx = 0;
 	bIsSaved = false;
 	bIsSwitch = false;
-	CharacterStats.WeaponName = TEXT("");
 }

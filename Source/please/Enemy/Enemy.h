@@ -60,6 +60,9 @@ public:
 	float MaxHealth;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
+	float DEF;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
 	float Damage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
@@ -71,7 +74,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Particles")
 	class UParticleSystem* HitParticles;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat")
 	class UBoxComponent* CombatCollision;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anims")
@@ -108,7 +111,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	class UProgressBar* HPBar;
 
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
+		class USoundCue* DeathSound;
+
 	bool bVisibleHealthBar;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = GameMode)
+		class ApleaseGameModeBase* GM;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -135,11 +145,11 @@ public:
 		virtual void CombatSphereOnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	UFUNCTION()
-		void CombatOnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
+		virtual void CombatOnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 			AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
 
 	UFUNCTION()
-		void CombatOnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+		virtual void CombatOnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "HUD")
 	void SpawnCombatText(const float& DamageAmount);
@@ -147,10 +157,10 @@ public:
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const & DamageEvent, class AController * EventInstigator, AActor * DamageCauser) override;
 
 	UFUNCTION(BlueprintCallable)
-		void ActivateCollision();
+	virtual void ActivateCollision();
 
 	UFUNCTION(BlueprintCallable)
-		void DeactivateCollision();
+	virtual void DeactivateCollision();
 
 	UFUNCTION(BlueprintCallable)
 	void MoveToTarget(class AMain* Target);
@@ -165,10 +175,10 @@ public:
 	void Attack();
 
 	UFUNCTION(BlueprintCallable)
-	void AttackEnd();
+	virtual void AttackEnd();
 
 	UFUNCTION(BlueprintCallable)
-	void DeathEnd();
+	virtual void DeathEnd();
 
 	void Disappear();
 

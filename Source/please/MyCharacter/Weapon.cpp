@@ -9,7 +9,8 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
-#include "../Enemy.h"
+#include "MainStatManager.h"
+#include "../Enemy/Enemy.h"
 
 #define FloatToString(input) (FString::SanitizeFloat(input))
 
@@ -35,7 +36,7 @@ void AWeapon::BeginPlay()
 	CombatCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	CombatCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
 
-	TypeTooltip = Korean(장비 아이템);
+	TypeTooltip = Korean(무기 아이템);
 	ItemTooltip += "Damage : " + FloatToString(Damage) + "\n" + WeaponTooltip;
 }
 void AWeapon::OnOverlapBegin(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
@@ -84,10 +85,6 @@ void AWeapon::CombatOnOverlapBegin(UPrimitiveComponent * OverlappedComponent, AA
 					UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), enemy->HitParticles, OtherComp->GetComponentLocation(), FRotator(0.f), false);
 				//}
 			}
-			if (enemy->HitSound)
-			{
-				UGameplayStatics::PlaySound2D(this, enemy->HitSound);
-			}
 			if (DamageTypeClass)
 			{
 				OwnerCharacter->MainApplyDamage(enemy, DamageTypeClass);
@@ -118,10 +115,7 @@ void AWeapon::Equip(AMain * Character)
 		RightHandSocket->AttachActor(this, Character->GetMesh());
 		Character->SetEquippedWeapon(this);
 		Character->SetActiveOverlappingItem(nullptr);
-		if (OnEquipSound)
-		{
-			UGameplayStatics::PlaySound2D(this, OnEquipSound);
-		}
+		Character->GetStatManager()->AddWeaponDamage(Damage);
 	}
 	
 
@@ -130,6 +124,8 @@ void AWeapon::Equip(AMain * Character)
 void AWeapon::UseItem(AMain * _Main)
 {
 	if (_Main == nullptr) return;
+
+	if (_Main->GetEquippedWeapon() == this) return;
 
 	UE_LOG(LogTemp, Warning, TEXT("weapon useitem func"));
 	Super::UseItem(_Main);
@@ -150,6 +146,7 @@ void AWeapon::UnEquip(AMain * Character)
 	if (RightHandSocket)
 	{
 		Character->SetEquippedWeapon(nullptr);
+		Character->GetStatManager()->AddWeaponDamage(-Damage);
 		this->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	}
 

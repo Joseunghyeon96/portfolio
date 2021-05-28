@@ -20,7 +20,7 @@ UMainStatManager::UMainStatManager()
 	CurrentStamina = 100.f;
 	Exp = 1;
 	Level = 1;
-	Damage = 25.f;
+	Damage = 0.f;
 	MaxLevel = 5;
 }
 
@@ -35,6 +35,7 @@ void UMainStatManager::BeginPlay()
 	
 	StatData = gameInstance->GetCharacterData(Level);
 	LevelUpExp = StatData->Exp;
+	DelStatUpdate.Broadcast(this);
 }
 
 void UMainStatManager::InitializeComponent()
@@ -67,11 +68,40 @@ void UMainStatManager::ApplyExp(int32 _Exp)
 			else {
 				auto gameInstance = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 				StatData = gameInstance->GetCharacterData(Level);
-
-				Level++;
-				Exp -= LevelUpExp;
-				LevelUpExp = StatData->Exp;
+				LevelUp();
+			
 			}
 		}
 	}
+}
+
+void UMainStatManager::AddWeaponDamage(float _InputDamage)
+{
+	WeaponDamage += _InputDamage;
+	SetDamage();
+}
+
+void UMainStatManager::AddDEF(float _InputDEF)
+{
+	DEF += _InputDEF;
+	DelStatUpdate.Broadcast(this);
+}
+void UMainStatManager::AddSTR(float _InputSTR)
+{
+	STR += _InputSTR;
+	SetDamage();
+	DelStatUpdate.Broadcast(this);
+}
+void UMainStatManager::LevelUp()
+{
+	Level++;
+	Exp -= LevelUpExp;
+	LevelUpExp = StatData->Exp;
+	AddSTR(StatData->STR);
+	DelStatUpdate.Broadcast(this);
+}
+void UMainStatManager::SetDamage()
+{
+	Damage = WeaponDamage + STR;
+	DelStatUpdate.Broadcast(this);
 }

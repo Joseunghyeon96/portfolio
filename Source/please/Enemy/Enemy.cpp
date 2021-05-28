@@ -4,11 +4,12 @@
 #include "Enemy.h"
 #include "Components/SphereComponent.h"
 #include "AIController.h"
-#include "MyCharacter/Main.h"
-#include "MyCharacter/MainStatManager.h"
+#include "../MyCharacter/Main.h"
+#include "../MyCharacter/MainStatManager.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/ProgressBar.h"
+#include "../pleaseGameModeBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Sound/SoundCue.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -18,7 +19,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Animation/AnimInstance.h"
 #include "TimerManager.h"
-#include "MyCharacter/MainPlayerController.h"
+#include "../MyCharacter/MainPlayerController.h"
 
 // Sets default values
 AEnemy::AEnemy()
@@ -34,10 +35,9 @@ AEnemy::AEnemy()
 	CombatSphere->SetupAttachment(GetRootComponent());
 	CombatSphere->InitSphereRadius(100.f);
 
+
 	CombatCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("CombatCollision"));
 	CombatCollision->SetupAttachment(GetMesh(), FName("EnemySocket"));
-
-
 	bOverlappingCombatSphere = false;
 	bAttacking = false;
 	bVisibleHealthBar = false;
@@ -74,14 +74,15 @@ void AEnemy::BeginPlay()
 	CombatSphere->OnComponentEndOverlap.AddDynamic(this, &AEnemy::CombatSphereOnOverlapEnd);
 	CombatSphere-> SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Ignore);
 
-
 	CombatCollision->OnComponentBeginOverlap.AddDynamic(this, &AEnemy::CombatOnOverlapBegin);
 	CombatCollision->OnComponentEndOverlap.AddDynamic(this, &AEnemy::CombatOnOverlapEnd);
 
 	CombatCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CombatCollision->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
 	CombatCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	CombatCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	CombatCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_GameTraceChannel1, ECollisionResponse::ECR_Overlap);
+
+	GM = Cast<ApleaseGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()));
 
 	HPBarWidget->SetRelativeLocation(FVector(0.f, 0.f, 180.f));
 	HPBarWidget->SetWidgetSpace(EWidgetSpace::Screen);
@@ -92,7 +93,10 @@ void AEnemy::BeginPlay()
 	}
 
 	HPBar = Cast<UProgressBar>(HPBarWidget->GetUserWidgetObject()->GetWidgetFromName(TEXT("EnemyHealthBar")));
-	HPBar->SetPercent(Health / MaxHealth);
+	if (HPBar)
+	{
+		HPBar->SetPercent(Health / MaxHealth);
+	}
 }
 
 // Called every frame
@@ -131,7 +135,6 @@ void AEnemy::DectectableSphereOnOverlapBegin(UPrimitiveComponent * OverlappedCom
 		bVisibleHealthBar = true;
 
 		if (main) {
-			bVisibleHealthBar = true;
 			HPBarWidget->SetHiddenInGame(false);
 			if (main->MS == EMovementStatus::EMS_Dead) return;
 			SetEnemyMovementStatus(EEnemyMovementStatus::EMS_MoveToTarget);
@@ -209,8 +212,10 @@ void AEnemy::CombatOnOverlapBegin(UPrimitiveComponent * OverlappedComponent, AAc
 	if (OtherActor)
 	{
 		AMain* main = Cast<AMain>(OtherActor);
-
+		UE_LOG(LogTemp, Warning, TEXT("Combat Overlap"));
 		if (main) {
+
+			UE_LOG(LogTemp, Warning, TEXT("Combat Overlap main check"));
 			if (main->GetDash())
 				return;
 
@@ -221,6 +226,7 @@ void AEnemy::CombatOnOverlapBegin(UPrimitiveComponent * OverlappedComponent, AAc
 			}
 			if (DamageTypeClass)
 			{
+				UE_LOG(LogTemp, Warning, TEXT("Combat Overlap Hit!"));
 				UGameplayStatics::ApplyDamage(main, Damage, AIController, this, DamageTypeClass);
 			}
 		}
@@ -238,13 +244,28 @@ void AEnemy::SpawnCombatText_Implementation(const float& DamageAmount)
 
 float AEnemy::TakeDamage(float DamageAmount, FDamageEvent const & DamageEvent, AController * EventInstigator, AActor * DamageCauser)
 {
-	Health -= DamageAmount;
+	Health -= (DamageAmount-DEF);
 	SpawnCombatText(DamageAmount);
 	HPBar->SetPercent(Health / MaxHealth);
+	if (HitSound)
+	{
+		UGameplayStatics::PlaySound2D(this, HitSound, GM->EffectVolume);
+	}
+
+	AMain* main = Cast<AMain>(DamageCauser);
+
+	if (CombatTarget != main)
+	{
+		bVisibleHealthBar = true;
+		HPBarWidget->SetHiddenInGame(false);
+		if (main->MS == EMovementStatus::EMS_Dead) return DamageAmount;
+		SetEnemyMovementStatus(EEnemyMovementStatus::EMS_MoveToTarget);
+		CombatTarget = main;
+	}
+
 	if (Health <= 0.f)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("2222"));
-		AMain* main = Cast<AMain>(DamageCauser);
 		if (main)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("11111"));
@@ -284,11 +305,17 @@ void AEnemy::MoveToTarget(AMain * Target)
 
 void AEnemy::Die()
 {
+	MainTarget = nullptr;
 	UAnimInstance* animInstance = GetMesh()->GetAnimInstance();
+
 	if (animInstance && CombatMontage)
 	{
 		animInstance->Montage_Play(CombatMontage, 1.0f);
 		animInstance->Montage_JumpToSection(FName("Death"),CombatMontage);
+	}
+	if (DeathSound)
+	{
+		UGameplayStatics::PlaySound2D(this, DeathSound,GM->EffectVolume);
 	}
 	SetEnemyMovementStatus(EEnemyMovementStatus::EMS_Dead);
 
@@ -364,7 +391,7 @@ void AEnemy::ActivateCollision()
 	CombatCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	if (AttackSound)
 	{
-		UGameplayStatics::PlaySound2D(this, AttackSound);
+		UGameplayStatics::PlaySound2D(this, AttackSound, GM->EffectVolume);
 	}
 }
 

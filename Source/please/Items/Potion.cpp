@@ -2,10 +2,10 @@
 
 
 #include "Potion.h"
-#include "MyCharacter/Main.h"
-#include "MyCharacter/InventoryComponent.h"
+#include "../MyCharacter/Main.h"
+#include "../MyCharacter/InventoryComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "MyGameInstance.h"
+#include "../MyGameInstance.h"
 
 #define FloatToString(input) (FString::SanitizeFloat(input))
 
@@ -26,7 +26,7 @@ void APotion::BeginPlay()
 	Name = PotionData->Name;
 
 	TypeTooltip = Korean(소비 아이템);
-	ItemTooltip += TEXT("사용 시 ")+ FloatToString(-HealAmount) + TEXT(" 만큼 체력을 회복합니다.");
+	ItemTooltip += TEXT("사용 시 ")+ FloatToString(HealAmount) + TEXT(" 만큼 체력을 회복합니다.");
 
 }
 

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "../Item.h"
+#include "../Items/Item.h"
 #include "Weapon.generated.h"
 
 /**
@@ -30,9 +30,6 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Skeletal Mesh")
 	class USkeletalMeshComponent* SkeletalMesh;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite , Category = Sound)
-	class USoundCue* OnEquipSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
 	class USoundCue* SwingSound;

@@ -2,7 +2,7 @@
 
 
 #include "Pickup.h"
-#include "MyCharacter/Main.h"
+#include "../MyCharacter/Main.h"
 
 
 APickup::APickup()

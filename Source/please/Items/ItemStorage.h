@@ -24,4 +24,7 @@ public:
 	//virtual void Tick(float DeltaTime) override;
 	UPROPERTY(EditDefaultsOnly,Category = "SaveData")
 	TMap<FString, TSubclassOf<class AWeapon>> WeaponMap;
+
+	UPROPERTY(EditDefaultsOnly, Category = "SaveData")
+		TMap<FString, TSubclassOf<class AItem>> ItemMap;
 };

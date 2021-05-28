@@ -1,3 +1,4 @@
+
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Main.h"
@@ -9,19 +10,20 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
-#include "../Enemy.h"
+#include "../Enemy/Enemy.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Weapon.h"
-#include "../Potion.h"
+#include "../Items/Potion.h"
 #include "../MySaveGame.h"
-#include "../ItemBox.h"
+#include "../pleaseGameModeBase.h"
+#include "../Items/ItemBox.h"
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "Animation/AnimInstance.h"
 #include "MainPlayerController.h"
 #include "MainStatManager.h"
 #include "Skill_FireBallObject.h"
 #include "InventoryComponent.h"
-#include "../ItemStorage.h"
+#include "../Items/ItemStorage.h"
 
 // Sets default values
 AMain::AMain()
@@ -68,7 +70,6 @@ AMain::AMain()
 	MaxCombo = 2;
 	bComboCheck = false;
 	bCanComboAttack = false;
-
 	Coins = 0;
 
 	//Init Enums
@@ -83,7 +84,6 @@ AMain::AMain()
 	bIsFMoved = false;
 	bIsRMoved = false;
 	bDashCheck = false;
-	bCanLoad = false;
 
 	InterpSpeed = 15.f;
 	bInterpToEnemy = false;
@@ -97,7 +97,8 @@ void AMain::BeginPlay()
 	//UKismetSystemLibrary::DrawDebugSphere(this, GetActorLocation() + FVector(0, 0, 75.f), 25.f, 12, FLinearColor::Red, 10.f, 0.4f);
 	MainPlayerController = Cast<AMainPlayerController>(GetController());
 	WeaponInstigator = GetController();
-	SwitchLoad();
+	GM = Cast<ApleaseGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()));
+	LoadGame(false);
 	
 }
 
@@ -142,8 +143,11 @@ void AMain::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	PlayerInputComponent->BindAction("LMB", IE_Pressed, this, &AMain::ComboAttack);
 	PlayerInputComponent->BindAction("LMB", IE_Pressed, this, &AMain::Attack);
 	PlayerInputComponent->BindAction("GKey", IE_Pressed, this, &AMain::PressKeyG);
+	PlayerInputComponent->BindAction("HKey", IE_Pressed, this, &AMain::PressKeyH);
 	PlayerInputComponent->BindAction("Dash", IE_Pressed, this, &AMain::DashCheck1);
 	PlayerInputComponent->BindAction("Dash", IE_Released, this, &AMain::Dash);
+	PlayerInputComponent->BindAction("TempKey", IE_Released, this, &AMain::SaveGame);
+	PlayerInputComponent->BindAction("RKey", IE_Released, this, &AMain::RestartLevel);
 
 	DECLARE_DELEGATE_OneParam(FCustomInputDelegate, const int32);
 	InputComponent->BindAction<FCustomInputDelegate>("QuickSlot_1", IE_Released, this, &AMain::UseQuickSlotItem,0);
@@ -216,7 +220,7 @@ void AMain::Jump()
 	if (!CanMove() || bAttacking) return;
 
 	ACharacter::Jump();
-	UGameplayStatics::PlaySound2D(this, JumpSound);
+	UGameplayStatics::PlaySound2D(this, JumpSound, GM->EffectVolume);
 }
 
 void AMain::StopJumping()
@@ -251,7 +255,11 @@ void AMain::Die()
 		animInstance->Montage_Play(CombatMontage, 2.0f);
 		animInstance->Montage_JumpToSection(FName("Death"),CombatMontage);
 	}
-	UGameplayStatics::PlaySound2D(this, DeathSound);
+	UGameplayStatics::PlaySound2D(this, DeathSound, GM->EffectVolume);
+	if (MainPlayerController)
+		MainPlayerController->DisplayDeadUI();
+
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_GameTraceChannel2, ECollisionResponse::ECR_Ignore);
 	SetMovementStatus(EMovementStatus::EMS_Dead);
 }
 
@@ -354,7 +362,26 @@ void AMain::MainApplyDamage(AEnemy* _Enemy , TSubclassOf<UDamageType> _DamageTyp
 {
 	if (_DamageTypeClass)
 	{
-		UGameplayStatics::ApplyDamage(_Enemy, StatManager->Damage, WeaponInstigator, this, _DamageTypeClass);
+		float damage = StatManager->Damage;
+		switch(ESD)
+		{
+		case ESkillDamage::ESD_Normal:
+			damage = damage * 1.0f;
+			break;
+		case ESkillDamage::ESD_Slash:
+			damage = damage * 1.5f;
+			break;
+		default:
+			break;
+		}
+		UGameplayStatics::ApplyDamage(_Enemy, damage, WeaponInstigator, this, _DamageTypeClass);
+	}
+}
+void AMain::ApplyMagicDamage(AEnemy * _Enemy, TSubclassOf<UDamageType> _DamageTypeClass,float _Damage)
+{
+	if (_DamageTypeClass)
+	{
+		UGameplayStatics::ApplyDamage(_Enemy, _Damage, WeaponInstigator, this, _DamageTypeClass);
 	}
 }
 void AMain::PressKeyF()
@@ -383,9 +410,12 @@ void AMain::PressKeyF()
 
 void AMain::PressKeyG()
 {
-	Skill_Fireball();
+	CastingSpell(1);
 }
-
+void AMain::PressKeyH()
+{
+	CastingSpell(2);
+}
 FRotator AMain::GetLookAtRotationYaw(FVector TargetLocation)
 {
 	FRotator lookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), TargetLocation);
@@ -411,7 +441,7 @@ void AMain::Attack()
 		animInstance->Montage_Play(CombatMontage,2.0f);
 		animInstance->Montage_JumpToSection(FName(*FString::Printf(TEXT("Attack_%d"),CurrentCombo)), CombatMontage);
 	}
-	UGameplayStatics::PlaySound2D(this, AttackSound);
+	UGameplayStatics::PlaySound2D(this, AttackSound, GM->EffectVolume);
 }
 
 void AMain::ComboAttack()
@@ -431,24 +461,22 @@ void AMain::ComboCheck()
 
 void AMain::AttackEnd()
 {
-	try {
-		if (!bCanComboAttack || CurrentCombo == MaxCombo) throw 1;
 
-		CurrentCombo++;
-		bAttacking = false;
-		Attack();
-		return;
-	}
-	catch(int error)
+	if (!bCanComboAttack || CurrentCombo == MaxCombo)
 	{
-		if (error < 0) return;
 		bAttacking = false;
 		SetInterpToEnemy(false);
 		bComboCheck = false;
 		bCanComboAttack = false;
 		CurrentCombo = 1;
-
+		return;
 	}
+
+	CurrentCombo++;
+	bAttacking = false;
+	Attack();
+	return;
+
 }
 
 void AMain::DashEnd()
@@ -508,7 +536,7 @@ void AMain::Dash()
 	const FVector Direction = GetActorForwardVector();//FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 	DashLocation = GetActorLocation() + (Direction * 500.f);
 
-	UGameplayStatics::PlaySound2D(this, DashSound);
+	UGameplayStatics::PlaySound2D(this, DashSound, GM->EffectVolume);
 	UAnimInstance* animInstance = GetMesh()->GetAnimInstance();
 	if (animInstance && CombatMontage)
 	{
@@ -524,7 +552,7 @@ void AMain::CastingSpell(int32 _SpellNum)
 	case 1: // slash attack 스킬-> 1번 
 		Skill_SlashAttack();
 		break;
-	case 2:// Fireball 스킬-> 1번 
+	case 2:// Fireball 스킬-> 2번 
 		Skill_Fireball();
 		break;
 	default:
@@ -537,7 +565,7 @@ void AMain::Skill_SlashAttack()
 	if (!EquippedWeapon || bAttacking || !CanMove() || bDash) return;
 
 	if (!IsValid(CombatTarget)) CombatTarget = nullptr;
-
+	if (StatManager->CurrentStamina < 90.f) return;
 	SetInterpToEnemy(true);
 	bAttacking = true;
 	UAnimInstance* animInstance = GetMesh()->GetAnimInstance();
@@ -546,12 +574,15 @@ void AMain::Skill_SlashAttack()
 		animInstance->Montage_Play(SkillMontage, 2.0f);
 		animInstance->Montage_JumpToSection(FName(TEXT("SlashAttack")), SkillMontage);
 	}
+	StatManager->CurrentStamina -= 90.f;
 }
 void AMain::Skill_Fireball()
 {
 	if (bAttacking || !CanMove() || bDash) return;
 
 	if (!IsValid(CombatTarget)) CombatTarget = nullptr;
+
+	if (StatManager->CurrentStamina < 50.f) return;
 
 	bAttacking = true;
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -564,8 +595,7 @@ void AMain::Skill_Fireball()
 		animInstance->Montage_Play(SkillMontage, 1.7f);
 		animInstance->Montage_JumpToSection(FName(TEXT("FireBall")), SkillMontage);
 	}
-
-	
+	StatManager->CurrentStamina -= 50.f;
 }
 void AMain::SpawnFireBall()
 {
@@ -581,6 +611,7 @@ void AMain::SpawnFireBall()
 		if (spawnActor)
 		{
 			spawnActor->SetTarget(CombatTarget);
+			spawnActor->SetOwnerCharacter(this);
 		}
 	}
 }
@@ -593,7 +624,7 @@ void AMain::SimpleTakeDamage(float DamageAmount)
 {
 	StatManager->CurrentHealth -= DamageAmount;
 	if (DamageAmount > 0)
-		UGameplayStatics::PlaySound2D(this, HitSound);
+		UGameplayStatics::PlaySound2D(this, HitSound, GM->EffectVolume);
 
 	if (StatManager->CurrentHealth <= 0) {
 		Die();
@@ -603,13 +634,16 @@ void AMain::SimpleTakeDamage(float DamageAmount)
 float AMain::TakeDamage(float DamageAmount, FDamageEvent const & DamageEvent, AController * EventInstigator, AActor * DamageCauser)
 {
 	float& currentHealth = StatManager->CurrentHealth;
-	currentHealth -= DamageAmount;
 
 	if (DamageAmount > 0)
 	{
+		float Damage = DamageAmount - StatManager->DEF;
+		if (Damage < 1) Damage = 1;
+
+		currentHealth -= Damage;
 		if (bDash)
 		{
-			currentHealth += DamageAmount;
+			currentHealth += Damage;
 			return DamageAmount;
 		}
 		if (currentHealth <= 0) {
@@ -623,15 +657,17 @@ float AMain::TakeDamage(float DamageAmount, FDamageEvent const & DamageEvent, AC
 		}
 
 		if (DamageAmount > 0)
-			UGameplayStatics::PlaySound2D(this, HitSound);
+			UGameplayStatics::PlaySound2D(this, HitSound, GM->EffectVolume);
 
 	}
 	else if (DamageAmount < 0)
 	{
+		currentHealth -= DamageAmount;
+
 		if (currentHealth > StatManager->MaxHealth)
 			currentHealth = StatManager->MaxHealth;
 
-		UGameplayStatics::PlaySound2D(this, HealSound);
+		UGameplayStatics::PlaySound2D(this, HealSound, GM->EffectVolume);
 		//UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealParticles, GetActorLocation(), FRotator(0.f), true);
 		UGameplayStatics::SpawnEmitterAttached(HealParticles, GetMesh(), "ParticleSocket");
 	}
@@ -649,9 +685,33 @@ void AMain::SwitchLevel(FName LevelName)
 		FName currentLevelName(*currentLevel);
 		if (currentLevelName != LevelName)
 		{
-			UGameplayStatics::OpenLevel(world, LevelName);
-			SwitchSave();
+			SaveGame();
+			UGameplayStatics::OpenLevel(this, LevelName, false);
 		}
+	}
+}
+void AMain::RestartLevel()
+{
+	if (MS != EMovementStatus::EMS_Dead) return;
+
+	if(MainPlayerController)
+		MainPlayerController->RemoveDeadUI();
+	UWorld* world = GetWorld();
+	UE_LOG(LogTemp, Warning, TEXT("restart func1"));
+	if (world)
+	{
+		UMySaveGame* loadGameInstance = Cast<UMySaveGame>(UGameplayStatics::CreateSaveGameObject(UMySaveGame::StaticClass()));
+		loadGameInstance = Cast<UMySaveGame>(UGameplayStatics::LoadGameFromSlot(loadGameInstance->PlayerName, loadGameInstance->UserIdx));
+		if (loadGameInstance != nullptr)
+		{
+			if (loadGameInstance->LevelName == FName(world->GetName()))
+			{
+				loadGameInstance->bIsSaved = true;
+				UGameplayStatics::SaveGameToSlot(loadGameInstance, loadGameInstance->PlayerName, loadGameInstance->UserIdx);
+			}
+		}
+
+		UGameplayStatics::OpenLevel(this, FName(world->GetName()), false);
 	}
 }
 
@@ -681,20 +741,59 @@ void AMain::SaveGame()
 	saveGameInstance->CharacterStats.Stamina = StatManager->CurrentStamina;
 	saveGameInstance->CharacterStats.MaxStamina = StatManager->MaxStamina;
 	saveGameInstance->CharacterStats.coins = Coins;
+	saveGameInstance->CharacterStats.Level = StatManager->Level;
+	saveGameInstance->CharacterStats.Exp = StatManager->Exp;
+	saveGameInstance->LevelName = FName(GetWorld()->GetName());
 
 	if (EquippedWeapon)
 	{
-		saveGameInstance->CharacterStats.WeaponName = EquippedWeapon->Name;
+		saveGameInstance->CharacterStats.EqippedItemMap.Add(EquippedWeapon->Name,1);
 	}
+	if (ArmorHead)
+	{
+		saveGameInstance->CharacterStats.EqippedItemMap.Add(ArmorHead->Name,2);
+	}
+	if (ArmorShoes)
+	{
+		saveGameInstance->CharacterStats.EqippedItemMap.Add(ArmorShoes->Name,2);
+	}
+	if (ArmorChest)
+	{
+		saveGameInstance->CharacterStats.EqippedItemMap.Add(ArmorChest->Name,2);
+	}
+	if (ArmorPant)
+	{
+		saveGameInstance->CharacterStats.EqippedItemMap.Add(ArmorPant->Name,2);
+	}
+	if (ArmorShield)
+	{
+		saveGameInstance->CharacterStats.EqippedItemMap.Add(ArmorShield->Name,2);
+	}
+
 	for (AItem* item : InventoryComp->Inventory)
 	{
-		saveGameInstance->CharacterStats.Inventory.Add(item->Name);
+		if (item)
+		{
+			//UE_LOG(LogTemp, Warning, TEXT("item name :: %s"), *(item->Name));
+			APotion* potion = Cast<APotion>(item);
+			if (potion)
+			{
+				for (int i = 0; i < potion->Amount; i++)
+				{
+					saveGameInstance->CharacterStats.Inventory.Add(item->Name);
+				}
+				saveGameInstance->CharacterStats.QuickIdx = InventoryComp->PotionActionBar.Find(potion);
+			}
+			else
+				saveGameInstance->CharacterStats.Inventory.Add(item->Name);
+		}
+		//saveGameInstance->CharacterStats.Inventory.Add(item->Name);
 	}
 
 	saveGameInstance->CharacterStats.Location = GetActorLocation();
 	saveGameInstance->CharacterStats.Rotation = GetActorRotation();
 	saveGameInstance->bIsSaved = true;
-
+	UE_LOG(LogTemp, Warning, TEXT("SaveGame"));
 	UGameplayStatics::SaveGameToSlot(saveGameInstance, saveGameInstance->PlayerName, saveGameInstance->UserIdx);
 
 }
@@ -704,32 +803,62 @@ void AMain::LoadGame(bool SetPosition)
 	UMySaveGame* loadGameInstance = Cast<UMySaveGame>(UGameplayStatics::CreateSaveGameObject(UMySaveGame::StaticClass()));
 	loadGameInstance = Cast<UMySaveGame>(UGameplayStatics::LoadGameFromSlot(loadGameInstance->PlayerName, loadGameInstance->UserIdx));
 	if (loadGameInstance == nullptr) return;
-	if (!loadGameInstance->bIsSaved || !bCanLoad) return;
+	if (!loadGameInstance->bIsSaved) return;
 
 	StatManager->CurrentHealth = loadGameInstance->CharacterStats.Health;
 	StatManager->MaxHealth = loadGameInstance->CharacterStats.MaxHealth;
 	StatManager->CurrentStamina = loadGameInstance->CharacterStats.Stamina;
 	StatManager->MaxStamina = loadGameInstance->CharacterStats.MaxStamina;
-	Coins = loadGameInstance->CharacterStats.coins;
+	for (int i = 1; i < loadGameInstance->CharacterStats.Level; i++)
+	{
+		StatManager->LevelUp();
+	}
+
+	StatManager->Exp = (loadGameInstance->CharacterStats.Exp);
 
 	if (WeaponStorage)
 	{
-		AItemStorage* weapons = GetWorld()->SpawnActor<AItemStorage>(WeaponStorage);
-		if (weapons)
+		AItemStorage* storage = GetWorld()->SpawnActor<AItemStorage>(WeaponStorage);
+		if (storage)
 		{
-			FString weaponName = loadGameInstance->CharacterStats.WeaponName;
+			//FString weaponName;
 			TArray<FString> InvenItems = loadGameInstance->CharacterStats.Inventory;
-			if (weapons->WeaponMap.Contains(weaponName))
-			{
-				AWeapon* weaponToEquip = GetWorld()->SpawnActor<AWeapon>(weapons->WeaponMap[weaponName]);
-				weaponToEquip->Equip(this);
-			}
+			//if (weapons->WeaponMap.Contains(weaponName))
+			//{
+			//	AWeapon* weaponToEquip = GetWorld()->SpawnActor<AWeapon>(weapons->WeaponMap[weaponName]);
+			//	weaponToEquip->Equip(this);
+			//}
+			int invenIdx = 0;
 			for (FString itemName : InvenItems)
 			{
-				if (weapons->WeaponMap.Contains(itemName))
+				if (storage->ItemMap.Contains(itemName))
 				{
-					AWeapon* weaponToInven = GetWorld()->SpawnActor<AWeapon>(weapons->WeaponMap[itemName]);
-					AddToItem(weaponToInven);
+					//UE_LOG(LogTemp, Warning, TEXT("load item name :: %s"),*itemName);
+					AItem* invenItem = GetWorld()->SpawnActor<AItem>(storage->ItemMap[itemName]);
+					AddToItem(invenItem);
+					//장착아이템에 들어있는경우
+					if (loadGameInstance->CharacterStats.EqippedItemMap.Contains(itemName))
+					{
+						if (loadGameInstance->CharacterStats.EqippedItemMap[itemName] == 1)
+						{
+							AWeapon* equipWeapon = Cast<AWeapon>(invenItem);
+							equipWeapon->UseItem(this);
+						}
+						else
+						{
+							AArmor* equipArmor = Cast<AArmor>(invenItem);
+							equipArmor->UseItem(this);
+						}
+					}
+					//아닌 경우 -> 포션(이 프로젝트에선)
+					else
+					{
+						if (loadGameInstance->CharacterStats.QuickIdx != INDEX_NONE)
+						{
+							InventoryComp->AddToQuickSlot(loadGameInstance->CharacterStats.QuickIdx, invenIdx);
+						}
+					}
+					invenIdx++;
 				}
 			}
 		}
@@ -740,86 +869,15 @@ void AMain::LoadGame(bool SetPosition)
 		SetActorLocation(loadGameInstance->CharacterStats.Location);
 		SetActorRotation(loadGameInstance->CharacterStats.Rotation);
 	}
+
 	SetMovementStatus(EMovementStatus::EMS_Normal);
 	GetMesh()->bPauseAnims = false;
 	GetMesh()->bNoSkeletonUpdate = false;
-
-	SetCanLoadGame(false);
-}
-void AMain::SwitchSave()
-{
-	UMySaveGame* saveGameInstance = Cast<UMySaveGame>(UGameplayStatics::CreateSaveGameObject(UMySaveGame::StaticClass()));
-
-	saveGameInstance->CharacterStats.Health = StatManager->CurrentHealth;
-	saveGameInstance->CharacterStats.MaxHealth = StatManager->MaxHealth;
-	saveGameInstance->CharacterStats.Stamina = StatManager->CurrentStamina;
-	saveGameInstance->CharacterStats.MaxStamina = StatManager->MaxStamina;
-	saveGameInstance->CharacterStats.coins = Coins;
-	saveGameInstance->bIsSwitch = true;
-
-	UE_LOG(LogTemp, Warning, TEXT("Switch Save 1"));
-
-	if (EquippedWeapon)
-	{
-		saveGameInstance->CharacterStats.WeaponName = EquippedWeapon->Name;
-	}
-	for (AItem* item : InventoryComp->Inventory)
-	{
-		saveGameInstance->CharacterStats.Inventory.Add(item->Name);
-	}
-
-	UGameplayStatics::SaveGameToSlot(saveGameInstance, saveGameInstance->PlayerName, 9);
+	loadGameInstance->bIsSaved = false;
+	UGameplayStatics::SaveGameToSlot(loadGameInstance, loadGameInstance->PlayerName, loadGameInstance->UserIdx);
+	UE_LOG(LogTemp, Warning, TEXT("LoadGame"));
 }
 
-void AMain::SwitchLoad()
-{
-	UMySaveGame* loadGameInstance = Cast<UMySaveGame>(UGameplayStatics::CreateSaveGameObject(UMySaveGame::StaticClass()));
-	loadGameInstance = Cast<UMySaveGame>(UGameplayStatics::LoadGameFromSlot(loadGameInstance->PlayerName, 9));
-	UE_LOG(LogTemp, Warning, TEXT("Switch Load 1"));
-	if (loadGameInstance == nullptr) return;
-
-	if (!loadGameInstance->bIsSwitch ) return;
-
-	UE_LOG(LogTemp, Warning, TEXT("Switch Load 2"));
-	StatManager->CurrentHealth = loadGameInstance->CharacterStats.Health;
-	StatManager->MaxHealth = loadGameInstance->CharacterStats.MaxHealth;
-	StatManager->CurrentStamina = loadGameInstance->CharacterStats.Stamina;
-	StatManager->MaxStamina = loadGameInstance->CharacterStats.MaxStamina;
-	Coins = loadGameInstance->CharacterStats.coins;
-	loadGameInstance->bIsSwitch = false;
-
-	if (WeaponStorage)
-	{
-		AItemStorage* weapons = GetWorld()->SpawnActor<AItemStorage>(WeaponStorage);
-		if (weapons)
-		{
-			FString weaponName = loadGameInstance->CharacterStats.WeaponName;
-			TArray<FString> InvenItems = loadGameInstance->CharacterStats.Inventory;
-
-			if (weapons->WeaponMap.Contains(weaponName))
-			{
-				AWeapon* weaponToEquip = GetWorld()->SpawnActor<AWeapon>(weapons->WeaponMap[weaponName]);
-				weaponToEquip->Equip(this);
-			}
-			for (FString itemName : InvenItems)
-			{
-				if (weapons->WeaponMap.Contains(itemName))
-				{
-					AWeapon* weaponToInven = GetWorld()->SpawnActor<AWeapon>(weapons->WeaponMap[weaponName]);
-					AddToItem(weaponToInven);
-				}
-			}
-		}
-	}
-
-	UGameplayStatics::SaveGameToSlot(loadGameInstance, loadGameInstance->PlayerName, 9);
-	SetMovementStatus(EMovementStatus::EMS_Normal);
-}
-
-void AMain::SetCanLoadGame(bool Input)
-{
-	bCanLoad = Input;
-}
 
 void AMain::ESCDown()
 {
@@ -833,8 +891,8 @@ void AMain::ESCDown()
 		}
 
 		bool worldPaused = MainPlayerController->TogglePauseMenu();
-		if (worldPaused == false)
-			LoadGame(true);
+		//if (worldPaused == false)
+		//	LoadGame(true);
 
 		UGameplayStatics::SetGamePaused(GetWorld(), worldPaused);
 			
@@ -864,7 +922,8 @@ void AMain::OpenItemBox()
 
 void AMain::AddToItem(AItem * _Item)
 {
-	InventoryComp->DeleteToInventory(_Item);
+	if (InventoryComp)
+		InventoryComp->AddToInventory(_Item);
 }
 
 
@@ -894,6 +953,97 @@ void AMain::UnEquipWeapon(AItem* _Item)
 	{
 		weapon->UnEquip(this);
 		InventoryComp->UnEquipWeapon(weapon);
+	}
+}
+
+void AMain::EquipArmor(AItem * Item)
+{
+	if (!Item) return;
+
+	AArmor* armor = Cast<AArmor>(Item);
+	if (armor)
+	{
+		switch (armor->EAT)
+		{
+		case EArmorType::EAT_Head:
+			InventoryComp->EquipHead(armor);
+			ArmorHead = armor;
+			break;
+		case EArmorType::EAT_Chest:
+			InventoryComp->EquipChest(armor);
+			ArmorChest = armor;
+			break;
+		case EArmorType::EAT_Pant:
+			InventoryComp->EquipPant(armor);
+			ArmorPant = armor;
+			break;
+		case EArmorType::EAT_Shoes:
+			InventoryComp->EquipShoes(armor);
+			ArmorShoes = armor;
+			break;
+		case EArmorType::EAT_Shield:
+			InventoryComp->EquipShield(armor);
+			ArmorShield = armor;
+			break;
+		default:
+			return;
+		}
+		armor->Equip(this);
+	}
+}
+
+void AMain::UnEquipArmor(AItem * _Item)
+{
+	if (!_Item) return;
+
+	AArmor* armor = Cast<AArmor>(_Item);
+	if (armor)
+	{
+		switch (armor->EAT)
+		{
+		case EArmorType::EAT_Head:
+			InventoryComp->UnEquipHead(armor);
+			ArmorHead = nullptr;
+			break;
+		case EArmorType::EAT_Chest:
+			InventoryComp->UnEquipChest(armor);
+			ArmorChest = nullptr;
+			break;
+		case EArmorType::EAT_Pant:
+			InventoryComp->UnEquipPant(armor);
+			ArmorPant = nullptr;
+			break;
+		case EArmorType::EAT_Shoes:
+			InventoryComp->UnEquipShoes(armor);
+			ArmorShoes = nullptr;
+			break;
+		case EArmorType::EAT_Shield:
+			InventoryComp->UnEquipShield(armor);
+			ArmorShield = nullptr;
+			break;
+		default:
+			return;
+		}
+		armor->UnEquip(this);
+	}
+}
+
+AArmor* AMain::GetArmor(EArmorType ArmorType)
+{
+	switch (ArmorType)
+	{
+	case EArmorType::EAT_Head:
+		return ArmorHead;
+	case EArmorType::EAT_Chest:
+		return ArmorChest;
+	case EArmorType::EAT_Pant:
+		return ArmorPant;
+	case EArmorType::EAT_Shoes:
+		return ArmorShoes;
+	case EArmorType::EAT_Shield:
+		return ArmorShield;
+	default:
+		return nullptr;
 	}
 }
 

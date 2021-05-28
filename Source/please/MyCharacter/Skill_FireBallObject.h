@@ -33,6 +33,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
 	float Speed;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+		TSubclassOf<UDamageType> DamageTypeClass;
+
+	class AMain* OwnerCharacter;
+
 	FTimerHandle Timer;
 protected:
 	// Called when the game starts or when spawned
@@ -50,6 +55,7 @@ public:
 		virtual void CollisionSphereOnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void SetTarget(class AEnemy* _Target);
+	void SetOwnerCharacter(class AMain* _Main);
 
 
 

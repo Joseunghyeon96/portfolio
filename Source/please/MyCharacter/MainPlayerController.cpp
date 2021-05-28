@@ -5,7 +5,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/ProgressBar.h"
 #include "Kismet/GameplayStatics.h"
-#include "../Enemy.h"
+#include "../Enemy/Enemy.h"
 
 void AMainPlayerController::BeginPlay()
 {
@@ -56,6 +56,20 @@ void AMainPlayerController::BeginPlay()
 			HelpMessage->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
+	if (WDeadUI)
+	{
+		DeadUI = CreateWidget<UUserWidget>(this, WDeadUI);
+		if (DeadUI)
+		{
+			DeadUI->AddToViewport();
+			DeadUI->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+
+	FInputModeGameOnly inputModeGameOnly;
+
+	SetInputMode(inputModeGameOnly);
+	bShowMouseCursor = false;
 }
 
 void AMainPlayerController::Tick(float DeltaTime)
@@ -86,8 +100,6 @@ void AMainPlayerController::RemovePauseMenu_Implementation()
 
 		SetInputMode(inputModeGameOnly);
 		bShowMouseCursor = false;
-
-
 		bPauseMenuVisible = false;
 	}
 }
@@ -187,6 +199,21 @@ void AMainPlayerController::RemoveHelpMessage()
 	}
 }
 
+
+void AMainPlayerController::DisplayDeadUI_Implementation()
+{
+	if (DeadUI)
+	{
+		DeadUI->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+void AMainPlayerController::RemoveDeadUI_Implementation()
+{
+	if (DeadUI)
+	{
+		DeadUI->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
 
 
 

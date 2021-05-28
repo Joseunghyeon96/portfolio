@@ -18,6 +18,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawning")
 	class UBoxComponent* SpawningBox;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawning")
+	class UBoxComponent* SpawnPointBox;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly , Category = "Spawning")
 	TSubclassOf<AActor> Actor_1;
 
@@ -44,6 +47,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Spawning")
 	TSubclassOf<AActor> GetSpawnActor();
+
+	UFUNCTION()
+		virtual void SpawningBoxOnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
+			AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Spawning")
 	void SpawnOurActor(UClass* ToSpawn, const FVector& Location);

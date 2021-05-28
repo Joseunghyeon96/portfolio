@@ -6,7 +6,6 @@
 #include "GameFramework/SaveGame.h"
 #include "MySaveGame.generated.h"
 
-
 USTRUCT(BlueprintType)
 struct FCharacterStats
 {
@@ -34,16 +33,20 @@ struct FCharacterStats
 	FRotator Rotation;
 
 	UPROPERTY(VisibleAnywhere, Category = "SaveData")
-	FString WeaponName;
-
-	UPROPERTY(VisibleAnywhere, Category = "SaveData")
 	TArray<FString> Inventory;
+
+	//키 = 아이템이름 밸류 = 아이템 타입 1무기2방어구
+	UPROPERTY(VisibleAnywhere, Category = "SaveData")
+	TMap<FString, uint8> EqippedItemMap;
 
 	UPROPERTY(VisibleAnywhere, Category = "SaveData")
 	int32 Level;
 
 	UPROPERTY(VisibleAnywhere, Category = "SaveData")
 	int32 Exp;
+
+	UPROPERTY(VisibleAnywhere, Category = "SaveData")
+	int32 QuickIdx;
 };
 /**
  * 
@@ -70,5 +73,8 @@ public:
 
 	UPROPERTY(VisibleAnywhere, Category = Basic)
 	bool bIsSwitch;
+
+	UPROPERTY(VisibleAnywhere, Category = Basic)
+	FName LevelName;
 	
 };

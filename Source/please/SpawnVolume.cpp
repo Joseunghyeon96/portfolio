@@ -6,7 +6,11 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Engine/World.h"
 #include "AIController.h"
-#include "Enemy.h"
+#include "Enemy/Enemy.h"
+#include "MyCharacter/Main.h"
+#include "Boss_ForgeKing/Boss_ForgeKing.h"
+#include "Boss_ForgeKing/ForgeKingController.h"
+
 #include "MyPawns/Critter.h"
 
 // Sets default values
@@ -16,6 +20,7 @@ ASpawnVolume::ASpawnVolume()
 	PrimaryActorTick.bCanEverTick = true;
 
 	SpawningBox = CreateDefaultSubobject<UBoxComponent>(TEXT("SpwaningBox"));
+	SpawnPointBox = CreateDefaultSubobject<UBoxComponent>(TEXT("SpawnPointBox"));
 }
 
 // Called when the game starts or when spawned
@@ -35,7 +40,9 @@ void ASpawnVolume::BeginPlay()
 	if (Actor_4)
 		SpawnArray.Add(Actor_4);
 
-	
+	SpawningBox->OnComponentBeginOverlap.AddDynamic(this, &ASpawnVolume::SpawningBoxOnOverlapBegin);
+	SpawningBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Ignore);
+	SpawnPointBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 }
 
 // Called every frame
@@ -47,12 +54,24 @@ void ASpawnVolume::Tick(float DeltaTime)
 
 FVector ASpawnVolume::GetSpawnPoint()
 {
-	FVector extent = SpawningBox->GetScaledBoxExtent();
-	FVector origin = SpawningBox->GetComponentLocation();
-
-	FVector point = UKismetMathLibrary::RandomPointInBoundingBox(origin, extent);
+	FVector point = SpawnPointBox->GetComponentLocation();
 
 	return point;
+}
+
+void ASpawnVolume::SpawningBoxOnOverlapBegin(UPrimitiveComponent * OverlappedComponent, AActor * OtherActor, UPrimitiveComponent * OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
+{
+
+	if (OtherActor)
+	{
+		AMain* main = Cast<AMain>(OtherActor);
+		if (main) {
+			UE_LOG(LogTemp, Warning, TEXT("Spawn Overlap"));
+			SpawnOurActor(GetSpawnActor(), GetSpawnPoint());
+			SpawningBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+			
+		}
+	}
 }
 
 TSubclassOf<AActor> ASpawnVolume::GetSpawnActor()
@@ -75,20 +94,12 @@ void ASpawnVolume::SpawnOurActor_Implementation(UClass* ToSpawn, const FVector &
 	if (!world) return;
 
 	FActorSpawnParameters spawnParams;
-	AActor* actor = world->SpawnActor<AActor>(ToSpawn, Location, FRotator(0.f), spawnParams);
-	
-	AEnemy* enemy = Cast<AEnemy>(actor);
-
+	ABoss_ForgeKing* actor = world->SpawnActor<ABoss_ForgeKing>(ToSpawn, Location, FRotator(0.f), spawnParams);
+	UE_LOG(LogTemp, Warning, TEXT("Boss Spawn"));
+	ABoss_ForgeKing* enemy = Cast<ABoss_ForgeKing>(actor);
 	if (enemy)
 	{
 		enemy->SpawnDefaultController();
-
-		AAIController* aiCont = Cast<AAIController>(enemy->GetController());
-
-		if (aiCont)
-		{
-			enemy->AIController = aiCont;
-		}
 	}
 
 }

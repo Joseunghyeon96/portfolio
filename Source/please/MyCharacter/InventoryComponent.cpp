@@ -2,9 +2,10 @@
 
 
 #include "InventoryComponent.h"
-#include "../Item.h"
-#include "../Potion.h"
+#include "../Items/Item.h"
+#include "../Items/Potion.h"
 #include "Weapon.h"
+#include "Armor.h"
 #include "Main.h"
 
 // Sets default values for this component's properties
@@ -14,6 +15,8 @@ UInventoryComponent::UInventoryComponent()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 
+	Inventory.Init(nullptr, 24);
+	PotionActionBar.Init(nullptr, 6);
 	// ...
 }
 
@@ -22,10 +25,17 @@ UInventoryComponent::UInventoryComponent()
 void UInventoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	Inventory.Init(nullptr, 24);
-	PotionActionBar.Init(nullptr, 6);
 	// ...
+
+	DelUpdateInventory.Broadcast(Inventory);
+	DelUpdatePotionActionBar.Broadcast(PotionActionBar);
+
+	DelUpdateWeapon.Broadcast(Weapon);
+	DelUpdateChest.Broadcast(Chest);
+	DelUpdateHead.Broadcast(Head);
+	DelUpdatePant.Broadcast(Pant);
+	DelUpdateShoes.Broadcast(Shoes);
+
 }
 
 
@@ -124,4 +134,99 @@ void UInventoryComponent::UnEquipWeapon(AWeapon* _Weapon)
 		Weapon = nullptr;
 	}
 	DelUpdateWeapon.Broadcast(Weapon);
+}
+
+void UInventoryComponent::EquipHead(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	Head = _Armor;
+	DelUpdateHead.Broadcast(Head);
+}
+
+void UInventoryComponent::EquipChest(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	Chest = _Armor;
+	DelUpdateChest.Broadcast(Chest);
+}
+
+void UInventoryComponent::EquipPant(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	Pant = _Armor;
+	DelUpdatePant.Broadcast(Pant);
+}
+
+void UInventoryComponent::EquipShoes(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	Shoes = _Armor;
+	DelUpdateShoes.Broadcast(Shoes);
+}
+
+void UInventoryComponent::EquipShield(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	Shield = _Armor;
+	DelUpdateShield.Broadcast(Shield);
+}
+
+void UInventoryComponent::UnEquipHead(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	if (Head == _Armor)
+	{
+		Head = nullptr;
+	}
+	DelUpdateHead.Broadcast(Head);
+}
+
+void UInventoryComponent::UnEquipChest(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	if (Chest == _Armor)
+	{
+		Chest = nullptr;
+	}
+	DelUpdateChest.Broadcast(Chest);
+}
+
+void UInventoryComponent::UnEquipPant(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	if (Pant == _Armor)
+	{
+		Pant = nullptr;
+	}
+	DelUpdatePant.Broadcast(Pant);
+}
+
+void UInventoryComponent::UnEquipShoes(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	if (Shoes == _Armor)
+	{
+		Shoes = nullptr;
+	}
+	DelUpdateShoes.Broadcast(Shoes);
+}
+
+void UInventoryComponent::UnEquipShield(AArmor * _Armor)
+{
+	if (_Armor == nullptr) return;
+
+	if (Shield == _Armor)
+	{
+		Shield = nullptr;
+	}
+	DelUpdateShield.Broadcast(Shield);
 }
